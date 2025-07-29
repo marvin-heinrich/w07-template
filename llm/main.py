@@ -52,7 +52,7 @@ class OpenWebUILLM(LLM):
     
     api_url: str = API_URL
     api_key: str = CHAIR_API_KEY
-    model_name: str = "llama3:latest"
+    model_name: str = "llama3.3:latest"
     
     @property
     def _llm_type(self) -> str:
@@ -193,7 +193,7 @@ async def recommend(req: RecommendRequest) -> RecommendResponse:
         todays_meals_str = ", ".join(req.todays_menu)
         
         # TODO Use LangChain to generate recommendation
-        recommendation = ""
+        recommendation = recommendation_chain.invoke({"favorite_menu": favorite_meals_str, "todays_menu": todays_meals_str})
         
         # Return the LLM response as the recommendation
         return RecommendResponse(recommendation=recommendation)
