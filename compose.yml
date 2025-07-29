@@ -1,4 +1,25 @@
+networks:
+  traefik:
+    external: false
+
 services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - --entrypoints.web.address=:80
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --api.dashboard=true
+      - --api.insecure=true
+    ports:
+      - "80:80"
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - traefik
+    restart: unless-stopped
+
   server:
     build:
       context: ./server
@@ -8,13 +29,19 @@ services:
       - DATABASE_URL=jdbc:postgresql://database:5432/mensa
       - LLM_SERVICE_URL=http://llm:5000
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    ports:
-      - "8080:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.server.rule=Host(`localhost`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.server.entrypoints=web"
+      - "traefik.http.routers.server.priority=100"
+      - "traefik.http.services.server.loadbalancer.server.port=8080"
+    networks:
+      - traefik
     restart: unless-stopped
 
   database:
@@ -27,18 +54,25 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-mensa}
     volumes:
       - db_data:/var/lib/postgresql/data
+    networks:
+      - traefik
     restart: unless-stopped
 
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
     environment:
-      - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:8080/api}
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost/api}
     depends_on:
       - server
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.client.rule=Host(`localhost`)"
+      - "traefik.http.routers.client.entrypoints=web"
+      - "traefik.http.services.client.loadbalancer.server.port=3000"
+    networks:
+      - traefik
     restart: unless-stopped
 
   llm:
@@ -47,8 +81,8 @@ services:
       dockerfile: Dockerfile
     environment:
       - CHAIR_API_KEY=${CHAIR_API_KEY:-your_api_key_here}
-    ports:
-      - "5001:5000"
+    networks:
+      - traefik
     restart: unless-stopped
 
 volumes:

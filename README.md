@@ -138,9 +138,37 @@ cd server
 ./gradlew clean build
 ```
 
-## Dockerized Deployment
+## Dockerized Deployment with Traefik
 
-The project includes Docker configurations for containerized deployment.
+The project uses Traefik as a reverse proxy to route traffic to different services through a single entry point.
+
+### Traefik Integration
+
+All services are accessible through Traefik on port 80:
+
+- **Client**: http://localhost (SvelteKit frontend)
+- **Server API**: http://localhost/api (Spring Boot backend)
+- **Traefik Dashboard**: http://localhost:8081
+
+#### Architecture
+
+```
+Internet → Traefik (port 80) → Services
+                    ├── / → Client (port 3000)
+                    └── /api → Server (port 8080)
+```
+
+#### Service Routing Configuration
+
+**Server (Spring Boot)**
+- Route: `Host(localhost) && PathPrefix(/api)`
+- Priority: 100 (higher priority for specific paths)
+- Target: Container port 8080
+
+**Client (SvelteKit)**  
+- Route: `Host(localhost)`
+- Priority: Default (lower priority, catches all other requests)
+- Target: Container port 3000
 
 ### Build and Run with Docker Compose
 
@@ -149,10 +177,30 @@ The project includes Docker configurations for containerized deployment.
    docker compose up --build
    ```
 2. Access the application:
-   - Client: [http://localhost:3000](http://localhost:3000)
-   - Server: [http://localhost:8080](http://localhost:8080)
-   - LLM Service: [http://localhost:5000](http://localhost:5000)
+   - Client: [http://localhost](http://localhost)
+   - Server API: [http://localhost/api](http://localhost/api)
+   - Traefik Dashboard: [http://localhost:8081](http://localhost:8081)
    - Database: PostgreSQL on port 5432
+
+3. Test the setup:
+   ```bash
+   # Test client
+   curl -I http://localhost
+
+   # Test server API
+   curl http://localhost/api/actuator/health
+
+   # View active routes
+   curl http://localhost:8081/api/http/routers
+   ```
+
+### Benefits of Traefik Integration
+
+- **Single Entry Point**: All services accessible through port 80
+- **Path-based Routing**: Automatic routing based on URL paths
+- **Load Balancing**: Built-in load balancer (if scaling services)
+- **Service Discovery**: Automatic detection of Docker services
+- **SSL Termination**: Easy HTTPS setup (configurable)
 
 ## Kubernetes Deployment
 
