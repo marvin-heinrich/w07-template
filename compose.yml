@@ -1,6 +1,5 @@
 services:
   server:
-    image: ghcr.io/aet-devops25/w07-template/server:latest
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -8,6 +7,12 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - DATABASE_URL=jdbc:postgresql://database:5432/mensa
       - LLM_SERVICE_URL=http://llm:5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -25,7 +30,6 @@ services:
     restart: unless-stopped
 
   client:
-    image: ghcr.io/aet-devops25/w07-template/client:latest
     build:
       context: ./client
       dockerfile: Dockerfile
@@ -38,14 +42,13 @@ services:
     restart: unless-stopped
 
   llm:
-    image: ghcr.io/aet-devops25/w07-template/llm:latest
     build:
       context: ./llm
       dockerfile: Dockerfile
     environment:
       - CHAIR_API_KEY=${CHAIR_API_KEY:-your_api_key_here}
     ports:
-      - "5000:5000"
+      - "5001:5000"
     restart: unless-stopped
 
 volumes:

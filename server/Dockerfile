@@ -1,29 +1,27 @@
-# Stage 1: Build the application
 FROM gradle:8.14-jdk21 AS build
 
-# Set working directory
+
 WORKDIR /app
 
-# Copy gradle configuration files
-COPY build.gradle settings.gradle ./
-COPY gradle ./gradle
+COPY build.gradle .
+COPY settings.gradle ./
+COPY gradlew gradlew.bat 
+COPY gradle/wrapper ./gradle/wrapper
 
-# Copy source code
-COPY src ./src
 
-# Build the application
+COPY src/main/java ./src/main/java
+COPY src/main/resources ./src/main/resources
+
 RUN gradle bootJar --no-daemon
 
-# Stage 2: Run the application
-FROM gcr.io/distroless/java21-debian12
+
+
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-# Copy the built JAR file from the build stage
 COPY --from=build /app/build/libs/*.jar app.jar
 
-# Expose the port the app runs on
 EXPOSE 8080
 
-# Command to run the application
-CMD ["app.jar"]
+ENTRYPOINT [ "java", "-jar", "app.jar" ]
