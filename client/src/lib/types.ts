@@ -13,3 +13,13 @@ export type UserPreferences = {
 export type Recommendation = {
     recommendation: string;
 };
+
+export type OpeningHours = {
+    monday: string;
+    tuesday: string;
+    wednesday: string;
+    thursday: string;
+    friday: string;
+    saturday: string;
+    sunday: string;
+};
