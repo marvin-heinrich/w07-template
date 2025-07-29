@@ -1,6 +1,7 @@
 package de.tum.aet.devops25.w07.controller;
 
 import de.tum.aet.devops25.w07.dto.Dish;
+import de.tum.aet.devops25.w07.dto.OpeningHours;
 import de.tum.aet.devops25.w07.service.CanteenService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,5 +33,21 @@ public class CanteenController {
         }
         
         return ResponseEntity.ok(todayMeals);
+    }
+
+    /**
+     * Get opening hours for a specific canteen
+     * @param canteenName the ID of the canteen (e.g., "mensa-garching")
+     * @return opening hours for the specified canteen
+     */
+    @GetMapping("/{canteenName}/opening-hours")
+    public ResponseEntity<OpeningHours> getOpeningHours(@PathVariable("canteenName") String canteenName) {
+        OpeningHours openingHours = canteenService.getOpeningHours(canteenName);
+        
+        if (openingHours == null) {
+            return ResponseEntity.noContent().build();
+        }
+        
+        return ResponseEntity.ok(openingHours);
     }
 }

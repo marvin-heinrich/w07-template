@@ -3,6 +3,7 @@ package de.tum.aet.devops25.w07;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.tum.aet.devops25.w07.controller.CanteenController;
 import de.tum.aet.devops25.w07.dto.Dish;
+import de.tum.aet.devops25.w07.dto.OpeningHours;
 import de.tum.aet.devops25.w07.service.CanteenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +77,85 @@ public class CanteenControllerTest {
         var actualDish2 = actualTodayDishes.get(1);
         assertThat(actualDish2.name()).isEqualTo("Salad");
         assertThat(actualDish2.dish_type()).isEqualTo("Side Dish");
+    }
+
+    @Test
+    public void testGetOpeningHours_ReturnsNoContent_WhenCanteenNotFound() throws Exception {
+        // Mock the service response for unknown canteen
+        when(canteenService.getOpeningHours("unknown-canteen")).thenReturn(null);
+
+        // Act & Assert
+        mockMvc.perform(get("/{canteenName}/opening-hours", "unknown-canteen")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    public void testGetOpeningHours_ReturnsOkWithOpeningHours_ForKnownCanteen() throws Exception {
+        // Arrange
+        OpeningHours expectedOpeningHours = new OpeningHours(
+            "11:00 - 14:00",
+            "11:00 - 14:00",
+            "11:00 - 14:00",
+            "11:00 - 14:00",
+            "11:00 - 14:00",
+            "Geschlossen",
+            "Geschlossen"
+        );
+
+        // Mock the service response
+        when(canteenService.getOpeningHours("mensa-garching")).thenReturn(expectedOpeningHours);
+
+        // Act
+        MvcResult result = mockMvc.perform(get("/{canteenName}/opening-hours", "mensa-garching")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn();
+
+        // Assert
+        ObjectMapper mapper = new ObjectMapper();
+        OpeningHours actualOpeningHours = mapper.readValue(result.getResponse().getContentAsString(), OpeningHours.class);
+        
+        assertThat(actualOpeningHours.monday()).isEqualTo("11:00 - 14:00");
+        assertThat(actualOpeningHours.tuesday()).isEqualTo("11:00 - 14:00");
+        assertThat(actualOpeningHours.wednesday()).isEqualTo("11:00 - 14:00");
+        assertThat(actualOpeningHours.thursday()).isEqualTo("11:00 - 14:00");
+        assertThat(actualOpeningHours.friday()).isEqualTo("11:00 - 14:00");
+        assertThat(actualOpeningHours.saturday()).isEqualTo("Geschlossen");
+        assertThat(actualOpeningHours.sunday()).isEqualTo("Geschlossen");
+    }
+
+    @Test
+    public void testGetOpeningHours_ReturnsOkWithDifferentHours_ForDifferentCanteen() throws Exception {
+        // Arrange
+        OpeningHours expectedOpeningHours = new OpeningHours(
+            "11:30 - 14:30",
+            "11:30 - 14:30",
+            "11:30 - 14:30",
+            "11:30 - 14:30",
+            "11:30 - 14:30",
+            "Geschlossen",
+            "Geschlossen"
+        );
+
+        // Mock the service response
+        when(canteenService.getOpeningHours("mensa-leopoldstrasse")).thenReturn(expectedOpeningHours);
+
+        // Act
+        MvcResult result = mockMvc.perform(get("/{canteenName}/opening-hours", "mensa-leopoldstrasse")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andReturn();
+
+        // Assert
+        ObjectMapper mapper = new ObjectMapper();
+        OpeningHours actualOpeningHours = mapper.readValue(result.getResponse().getContentAsString(), OpeningHours.class);
+        
+        assertThat(actualOpeningHours.monday()).isEqualTo("11:30 - 14:30");
+        assertThat(actualOpeningHours.friday()).isEqualTo("11:30 - 14:30");
+        assertThat(actualOpeningHours.saturday()).isEqualTo("Geschlossen");
     }
 
     private <T> List<T> getList(String path, HttpStatus expectedStatus, Class<T> listElementType, Object... uriVariables) throws Exception {

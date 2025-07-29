@@ -1,6 +1,6 @@
 import type { PageLoad } from './$types';
 import { BaseURL} from '$lib/env';
-import type { Meal, Recommendation, UserPreferences } from '$lib/types';
+import type { Meal, Recommendation, UserPreferences, OpeningHours } from '$lib/types';
 import { getCookie, setCookie } from '$lib';
 
 export const ssr = false;
@@ -23,25 +23,28 @@ export const load: PageLoad = async ({ fetch }) => {
     }
 
     // Execute all requests in parallel, don't wait for slow ones to complete
-    const [mealsResult, preferencesResult, recommendationResult] = await Promise.allSettled([
+    const [mealsResult, preferencesResult, recommendationResult, openingHoursResult] = await Promise.allSettled([
         fetch(`${BaseURL}/mensa-garching/today`).then(res => res.json()),
         fetch(`${BaseURL}/preferences/${username}`).then(res => res.json()),
-        fetch(`${BaseURL}/recommend/${username}`).then(res => res.json())
+        fetch(`${BaseURL}/recommend/${username}`).then(res => res.json()),
+        fetch(`${BaseURL}/mensa-garching/opening-hours`).then(res => res.json())
     ]);
 
     // Extract successful results or provide defaults
     const meals: Meal[] = mealsResult.status === 'fulfilled' ? mealsResult.value : [];
     const preferences: UserPreferences = preferencesResult.status === 'fulfilled' ? preferencesResult.value : { favoriteMeals: [] };
     const recommendation: Recommendation | null = recommendationResult.status === 'fulfilled' ? recommendationResult.value : null;
+    const openingHours: OpeningHours | null = openingHoursResult.status === 'fulfilled' ? openingHoursResult.value : null;
 
     console.log('Meals:', meals);
     console.log('Preferences:', preferences);
     console.log('Recommendation:', recommendation);
+    console.log('Opening Hours:', openingHours);
 
     // Set the boolean favorite property for each meal
     meals.forEach((meal: any) => {
         meal.favorite = preferences.favoriteMeals.includes(meal.name);
     });
 
-    return { meals, recommendation };
+    return { meals, recommendation, openingHours };
 };
