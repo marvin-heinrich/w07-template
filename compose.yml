@@ -8,6 +8,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - DATABASE_URL=jdbc:postgresql://database:5432/mensa
       - LLM_SERVICE_URL=http://llm:5000
+      - LLM_GRPC_HOST=llm
+      - LLM_GRPC_PORT=50051
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -45,7 +47,8 @@ services:
     environment:
       - CHAIR_API_KEY=${CHAIR_API_KEY:-your_api_key_here}
     ports:
-      - "5000:5000"
+      - "5001:5000"
+      - "50051:50051"
     restart: unless-stopped
 
 volumes:

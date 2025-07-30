@@ -7,6 +7,10 @@ from pydantic import BaseModel, Field
 from langchain.llms.base import LLM
 from langchain_core.prompts import PromptTemplate
 from langchain.callbacks.manager import CallbackManagerForLLMRun
+import grpc
+from concurrent import futures
+import meal_recommendation_pb2
+import meal_recommendation_pb2_grpc
 
 # Environment configuration
 CHAIR_API_KEY = os.getenv("CHAIR_API_KEY")
@@ -147,8 +151,85 @@ Example format: Spaghetti Carbonara
 Recommendation:"""
 )
 
-# Create the chain using the new RunnableSequence patternAdd commentMore actions
+# Create the chain using the new RunnableSequence pattern
 recommendation_chain = recommendation_prompt | llm
+
+
+class MealRecommendationService(meal_recommendation_pb2_grpc.MealRecommendationServiceServicer):
+    """gRPC service implementation for meal recommendations."""
+    
+    def RecommendMeal(self, request, context):
+        """
+        gRPC method to recommend meals.
+        
+        Args:
+            request: MealRecommendationRequest with user_id, favorite_meals, and today_menu
+            context: gRPC context
+            
+        Returns:
+            MealRecommendationResponse with recommended meal and reasoning
+        """
+        try:
+            # Extract data from request
+            user_id = request.user_id
+            favorite_meals = list(request.favorite_meals)
+            today_menu = [meal.name for meal in request.today_menu]
+            
+            if not favorite_meals:
+                return meal_recommendation_pb2.MealRecommendationResponse(
+                    recommended_meal_name="No recommendation available",
+                    reasoning="No favorite meals provided"
+                )
+            
+            if not today_menu:
+                return meal_recommendation_pb2.MealRecommendationResponse(
+                    recommended_meal_name="No recommendation available", 
+                    reasoning="No meals available today"
+                )
+            
+            # Format for LLM input
+            favorite_meals_str = ", ".join(favorite_meals)
+            todays_meals_str = ", ".join(today_menu)
+            
+            # Use LangChain to generate recommendation
+            recommendation = recommendation_chain.invoke({
+                "favorite_menu": favorite_meals_str, 
+                "todays_menu": todays_meals_str
+            })
+            
+            # Create response
+            return meal_recommendation_pb2.MealRecommendationResponse(
+                recommended_meal_name=recommendation.strip(),
+                reasoning=f"Recommended based on your favorites: {favorite_meals_str}"
+            )
+            
+        except Exception as e:
+            print(f"Error in gRPC recommendation: {str(e)}")
+            return meal_recommendation_pb2.MealRecommendationResponse(
+                recommended_meal_name="Error generating recommendation",
+                reasoning=f"An error occurred: {str(e)}"
+            )
+
+
+def serve_grpc():
+    """Start the gRPC server."""
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    meal_recommendation_pb2_grpc.add_MealRecommendationServiceServicer_to_server(
+        MealRecommendationService(), server
+    )
+    
+    grpc_port = int(os.getenv("GRPC_PORT", 50051))
+    listen_addr = f'[::]:{grpc_port}'
+    server.add_insecure_port(listen_addr)
+    
+    print(f"Starting gRPC server on port {grpc_port}")
+    server.start()
+    
+    try:
+        server.wait_for_termination()
+    except KeyboardInterrupt:
+        print("Stopping gRPC server")
+        server.stop(0)
 
 @app.get("/health")
 async def health_check():
@@ -228,13 +309,17 @@ async def root():
 if __name__ == "__main__":
     """
     Entry point for `python main.py` invocation.
-    Starts Uvicorn server serving this FastAPI app.
-
-    Honors PORT environment variable (default: 5000).
-    Reload=True enables live-reload during development.
+    Starts both FastAPI HTTP server and gRPC server.
     """
     import uvicorn
+    import threading
 
+    # Start gRPC server in a separate thread
+    grpc_thread = threading.Thread(target=serve_grpc)
+    grpc_thread.daemon = True
+    grpc_thread.start()
+
+    # Start FastAPI server
     port = int(os.getenv("PORT", 5000))
     
     print(f"Starting LLM Recommendation Service on port {port}")
@@ -244,5 +329,5 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=port,
-        reload=True
+        reload=False  # Set to False when running both servers
     )
